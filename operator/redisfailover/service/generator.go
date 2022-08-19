@@ -395,6 +395,14 @@ func generateRedisStatefulSet(rf *redisfailoverv1.RedisFailover, labels map[stri
 		ss.Spec.Template.Spec.Containers = append(ss.Spec.Template.Spec.Containers, exporter)
 	}
 
+	if rf.Spec.Redis.Sidecars != nil {
+		ss.Spec.Template.Spec.Containers = append(ss.Spec.Template.Spec.Containers, rf.Spec.Redis.Sidecars...)
+	}
+
+	if rf.Spec.Redis.InitContainers != nil {
+		ss.Spec.Template.Spec.InitContainers = append(ss.Spec.Template.Spec.InitContainers, rf.Spec.Redis.InitContainers...)
+	}
+
 	if rf.Spec.Auth.SecretPath != "" {
 		ss.Spec.Template.Spec.Containers[0].Env = append(ss.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
 			Name: "REDIS_PASSWORD",
