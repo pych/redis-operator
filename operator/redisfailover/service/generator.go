@@ -27,6 +27,7 @@ port {{.Spec.Redis.Port}}
 tcp-keepalive 60
 save 900 1
 save 300 10
+user pinger -@all +ping on >pingpass
 {{- range .Spec.Redis.CustomCommandRenames}}
 rename-command "{{.From}}" "{{.To}}"
 {{- end}}
@@ -178,7 +179,7 @@ func generateRedisShutdownConfigMap(rf *redisfailoverv1.RedisFailover, labels ma
 	name := GetRedisShutdownConfigMapName(rf)
 	port := rf.Spec.Redis.Port
 	namespace := rf.Namespace
-	rfName := strings.ToUpper(rf.Name)
+	rfName := strings.Replace(strings.ToUpper(rf.Name), "-", "_", -1)
 
 	labels = util.MergeLabels(labels, generateSelectorLabels(redisRoleName, rf.Name))
 	shutdownContent := fmt.Sprintf(`master=$(redis-cli -h ${RFS_%[1]v_SERVICE_HOST} -p ${RFS_%[1]v_SERVICE_PORT_SENTINEL} --csv SENTINEL get-master-addr-by-name mymaster | tr ',' ' ' | tr -d '\"' |cut -d' ' -f1)
@@ -301,6 +302,7 @@ func generateRedisStatefulSet(rf *redisfailoverv1.RedisFailover, labels map[stri
 				Spec: corev1.PodSpec{
 					Affinity:                      getAffinity(rf.Spec.Redis.Affinity, labels),
 					Tolerations:                   rf.Spec.Redis.Tolerations,
+					TopologySpreadConstraints:     rf.Spec.Redis.TopologySpreadConstraints,
 					NodeSelector:                  rf.Spec.Redis.NodeSelector,
 					SecurityContext:               getSecurityContext(rf.Spec.Redis.SecurityContext),
 					HostNetwork:                   rf.Spec.Redis.HostNetwork,
@@ -343,7 +345,7 @@ func generateRedisStatefulSet(rf *redisfailoverv1.RedisFailover, labels map[stri
 										Command: []string{
 											"sh",
 											"-c",
-											fmt.Sprintf("redis-cli -h $(hostname) -p %[1]v ping", rf.Spec.Redis.Port),
+											fmt.Sprintf("redis-cli -h $(hostname) -p %[1]v ping --user pinger --pass pingpass --no-auth-warning", rf.Spec.Redis.Port),
 										},
 									},
 								},
@@ -437,15 +439,16 @@ func generateSentinelDeployment(rf *redisfailoverv1.RedisFailover, labels map[st
 					Annotations: rf.Spec.Sentinel.PodAnnotations,
 				},
 				Spec: corev1.PodSpec{
-					Affinity:           getAffinity(rf.Spec.Sentinel.Affinity, labels),
-					Tolerations:        rf.Spec.Sentinel.Tolerations,
-					NodeSelector:       rf.Spec.Sentinel.NodeSelector,
-					SecurityContext:    getSecurityContext(rf.Spec.Sentinel.SecurityContext),
-					HostNetwork:        rf.Spec.Sentinel.HostNetwork,
-					DNSPolicy:          getDnsPolicy(rf.Spec.Sentinel.DNSPolicy),
-					ImagePullSecrets:   rf.Spec.Sentinel.ImagePullSecrets,
-					PriorityClassName:  rf.Spec.Sentinel.PriorityClassName,
-					ServiceAccountName: rf.Spec.Sentinel.ServiceAccountName,
+					Affinity:                  getAffinity(rf.Spec.Sentinel.Affinity, labels),
+					Tolerations:               rf.Spec.Sentinel.Tolerations,
+					TopologySpreadConstraints: rf.Spec.Sentinel.TopologySpreadConstraints,
+					NodeSelector:              rf.Spec.Sentinel.NodeSelector,
+					SecurityContext:           getSecurityContext(rf.Spec.Sentinel.SecurityContext),
+					HostNetwork:               rf.Spec.Sentinel.HostNetwork,
+					DNSPolicy:                 getDnsPolicy(rf.Spec.Sentinel.DNSPolicy),
+					ImagePullSecrets:          rf.Spec.Sentinel.ImagePullSecrets,
+					PriorityClassName:         rf.Spec.Sentinel.PriorityClassName,
+					ServiceAccountName:        rf.Spec.Sentinel.ServiceAccountName,
 					InitContainers: []corev1.Container{
 						{
 							Name:            "sentinel-config-copy",
