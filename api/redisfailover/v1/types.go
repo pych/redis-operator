@@ -83,6 +83,7 @@ type SentinelSettings struct {
 	NodeSelector              map[string]string                 `json:"nodeSelector,omitempty"`
 	PodAnnotations            map[string]string                 `json:"podAnnotations,omitempty"`
 	ServiceAnnotations        map[string]string                 `json:"serviceAnnotations,omitempty"`
+	InitContainers           []corev1.Container            `json:"initcontainers,omitempty"`
 	Exporter                 SentinelExporter              `json:"exporter,omitempty"`
 	Sidecars                 []corev1.Container            `json:"sidecars,omitempty"`
 	ConfigCopy                SentinelConfigCopy                `json:"configCopy,omitempty"`
