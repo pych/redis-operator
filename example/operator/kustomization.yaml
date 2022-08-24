@@ -1,0 +1,12 @@
+resources:
+- "roles.yaml"
+- "rolebinding.yaml"
+- "operator.yaml"
+- "serviceaccount.yaml"
+
+namespace: redis-failover
+
+images:
+- name: quay.io/spotahome/redis-operator
+  newName: samof76/redis-operator
+  newTag: 01a6945a48bbbf766e37d987476dfcc68d4047a9
