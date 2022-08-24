@@ -27,6 +27,7 @@ port {{.Spec.Redis.Port}}
 tcp-keepalive 60
 save 900 1
 save 300 10
+io-threads 4
 user pinger -@all +ping on >pingpass
 {{- range .Spec.Redis.CustomCommandRenames}}
 rename-command "{{.From}}" "{{.To}}"
