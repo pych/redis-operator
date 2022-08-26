@@ -67,7 +67,7 @@ func (r *RedisFailoverHealer) MakeMaster(ip string, rf *redisfailoverv1.RedisFai
 	}
 
 	port := getRedisPort(rf.Spec.Redis.Port)
-	return r.redisClient.MakeMaster(ip, port, password)
+	err = r.redisClient.MakeMaster(ip, port, password)
 	if err != nil {
 		return err
 	}
