@@ -125,6 +125,9 @@ If necessary, this command can be changed with the `command` option inside redis
 ### Custom Priority Class
 In order to use a custom Kubernetes [Priority Class](https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass) for Redis and/or Sentinel pods, you can set the `priorityClassName` in the redis/sentinel spec, this attribute has no default and depends on the specific cluster configuration. **Note:** the operator doesn't create the referenced `Priority Class` resource.
 
+### Custom Port
+In order to use a custom port for Redis and/or Sentinel pods, you can set the `port` in the `redis` spec, this attribute has default value of `6379`. An example of its usage can be found [here](example/redisfailover/custom-port.yaml)
+
 ### Custom Service Account
 In order to use a custom Kubernetes [Service Account](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/) for Redis and/or Sentinel pods, you can set the `serviceAccountName` in the redis/sentinel spec, if not specified the `default` Service Account will be used. **Note:** the operator doesn't create the referenced `Service Account` resource.
 
