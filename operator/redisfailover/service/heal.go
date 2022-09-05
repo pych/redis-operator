@@ -153,6 +153,7 @@ func (r *RedisFailoverHealer) SetMasterOnAll(masterIP string, rf *redisfailoverv
 		if pod.Status.PodIP == masterIP {
 			r.logger.Debugf("Ensure pod %s is master", pod.Name)
 			if err := r.redisClient.MakeMaster(masterIP, port, password); err != nil {
+				r.logger.Errorf("Make master failed, master ip: %s, error: %v", masterIP, err)
 				return err
 			}
 

@@ -84,11 +84,11 @@ func (m *Main) Run() error {
 	// Create kubernetes service.
 	k8sservice := k8s.New(k8sClient, customClient, aeClientset, m.logger)
 
-	// Get lease lock resource namespace
-	lockNamespace := getNamespace()
-
 	// Create the redis clients
 	redisClient := redis.New()
+
+	// Get lease lock resource namespace
+	lockNamespace := getNamespace()
 
 	// Create operator and run.
 	redisfailoverOperator, err := redisfailover.New(m.flags.ToRedisOperatorConfig(), k8sservice, k8sClient, lockNamespace, redisClient, metricsRecorder, m.logger)
