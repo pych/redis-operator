@@ -331,7 +331,7 @@ func generateRedisStatefulSet(rf *redisfailoverv1.RedisFailover, labels map[stri
 							ReadinessProbe: &corev1.Probe{
 								InitialDelaySeconds: graceTime,
 								TimeoutSeconds:      5,
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									Exec: &corev1.ExecAction{
 										Command: []string{"/bin/sh", "/redis-readiness/ready.sh"},
 									},
@@ -342,7 +342,7 @@ func generateRedisStatefulSet(rf *redisfailoverv1.RedisFailover, labels map[stri
 								TimeoutSeconds:      5,
 								FailureThreshold:    6,
 								PeriodSeconds:       15,
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									Exec: &corev1.ExecAction{
 										Command: []string{
 											"sh",
@@ -354,7 +354,7 @@ func generateRedisStatefulSet(rf *redisfailoverv1.RedisFailover, labels map[stri
 							},
 							Resources: rf.Spec.Redis.Resources,
 							Lifecycle: &corev1.Lifecycle{
-								PreStop: &corev1.Handler{
+								PreStop: &corev1.LifecycleHandler{
 									Exec: &corev1.ExecAction{
 										Command: []string{"/bin/sh", "/redis-shutdown/shutdown.sh"},
 									},
@@ -431,6 +431,9 @@ func generateSentinelDeployment(rf *redisfailoverv1.RedisFailover, labels map[st
 	selectorLabels := generateSelectorLabels(sentinelRoleName, rf.Name)
 	labels = util.MergeLabels(labels, selectorLabels)
 
+	volumeMounts := getSentinelVolumeMounts(rf)
+	volumes := getSentinelVolumes(rf, configMapName)
+
 	sd := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            name,
@@ -505,17 +508,12 @@ func generateSentinelDeployment(rf *redisfailoverv1.RedisFailover, labels map[st
 									Protocol:      corev1.ProtocolTCP,
 								},
 							},
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "sentinel-config-writable",
-									MountPath: "/redis",
-								},
-							},
-							Command: sentinelCommand,
+							VolumeMounts: volumeMounts,
+							Command:      sentinelCommand,
 							ReadinessProbe: &corev1.Probe{
 								InitialDelaySeconds: graceTime,
 								TimeoutSeconds:      5,
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									Exec: &corev1.ExecAction{
 										Command: []string{
 											"sh",
@@ -528,7 +526,7 @@ func generateSentinelDeployment(rf *redisfailoverv1.RedisFailover, labels map[st
 							LivenessProbe: &corev1.Probe{
 								InitialDelaySeconds: graceTime,
 								TimeoutSeconds:      5,
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									Exec: &corev1.ExecAction{
 										Command: []string{
 											"sh",
@@ -541,24 +539,7 @@ func generateSentinelDeployment(rf *redisfailoverv1.RedisFailover, labels map[st
 							Resources: rf.Spec.Sentinel.Resources,
 						},
 					},
-					Volumes: []corev1.Volume{
-						{
-							Name: "sentinel-config",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: configMapName,
-									},
-								},
-							},
-						},
-						{
-							Name: "sentinel-config-writable",
-							VolumeSource: corev1.VolumeSource{
-								EmptyDir: &corev1.EmptyDirVolumeSource{},
-							},
-						},
-					},
+					Volumes: volumes,
 				},
 			},
 		},
@@ -671,7 +652,21 @@ func createSentinelExporterContainer(rf *redisfailoverv1.RedisFailover) corev1.C
 		ImagePullPolicy: pullPolicy(rf.Spec.Sentinel.Exporter.ImagePullPolicy),
 		SecurityContext: getContainerSecurityContext(rf.Spec.Sentinel.Exporter.ContainerSecurityContext),
 		Args:            rf.Spec.Sentinel.Exporter.Args,
-		Env:             rf.Spec.Sentinel.Exporter.Env,
+		Env: append(rf.Spec.Sentinel.Exporter.Env, corev1.EnvVar{
+			Name: "REDIS_ALIAS",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.name",
+				},
+			},
+		}, corev1.EnvVar{
+			Name:  "REDIS_EXPORTER_WEB_LISTEN_ADDRESS",
+			Value: fmt.Sprintf("0.0.0.0:%[1]v", sentinelExporterPort),
+		}, corev1.EnvVar{
+			Name:  "REDIS_ADDR",
+			Value: "redis://localhost:26379",
+		},
+		),
 		Ports: []corev1.ContainerPort{
 			{
 				Name:          "metrics",
@@ -681,6 +676,7 @@ func createSentinelExporterContainer(rf *redisfailoverv1.RedisFailover) corev1.C
 		},
 		Resources: resources,
 	}
+
 	return container
 }
 
@@ -782,6 +778,25 @@ func getRedisVolumeMounts(rf *redisfailoverv1.RedisFailover) []corev1.VolumeMoun
 		},
 	}
 
+	if rf.Spec.Redis.ExtraVolumeMounts != nil {
+		volumeMounts = append(volumeMounts, rf.Spec.Redis.ExtraVolumeMounts...)
+	}
+
+	return volumeMounts
+}
+
+func getSentinelVolumeMounts(rf *redisfailoverv1.RedisFailover) []corev1.VolumeMount {
+	volumeMounts := []corev1.VolumeMount{
+		{
+			Name:      "sentinel-config-writable",
+			MountPath: "/redis",
+		},
+	}
+
+	if rf.Spec.Sentinel.ExtraVolumeMounts != nil {
+		volumeMounts = append(volumeMounts, rf.Spec.Redis.ExtraVolumeMounts...)
+	}
+
 	return volumeMounts
 }
 
@@ -829,6 +844,37 @@ func getRedisVolumes(rf *redisfailoverv1.RedisFailover) []corev1.Volume {
 	dataVolume := getRedisDataVolume(rf)
 	if dataVolume != nil {
 		volumes = append(volumes, *dataVolume)
+	}
+
+	if rf.Spec.Redis.ExtraVolumes != nil {
+		volumes = append(volumes, rf.Spec.Redis.ExtraVolumes...)
+	}
+
+	return volumes
+}
+
+func getSentinelVolumes(rf *redisfailoverv1.RedisFailover, configMapName string) []corev1.Volume {
+	volumes := []corev1.Volume{
+		{
+			Name: "sentinel-config",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: configMapName,
+					},
+				},
+			},
+		},
+		{
+			Name: "sentinel-config-writable",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+	}
+
+	if rf.Spec.Sentinel.ExtraVolumes != nil {
+		volumes = append(volumes, rf.Spec.Sentinel.ExtraVolumes...)
 	}
 
 	return volumes
