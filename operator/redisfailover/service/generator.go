@@ -350,9 +350,10 @@ func generateRedisStatefulSet(rf *redisfailoverv1.RedisFailover, labels map[stri
 								ProbeHandler: corev1.ProbeHandler{
 									Exec: &corev1.ExecAction{
 										Command: []string{
-											"sh",
-											"-c",
-											fmt.Sprintf("redis-cli -h 127.0.0.1 -p %[1]v ping --user pinger --pass pingpass --no-auth-warning", rf.Spec.Redis.Port),
+											"nc",
+											"-zv",
+											"127.0.0.1",
+											fmt.Sprintf("%[1]v", rf.Spec.Redis.Port),
 										},
 									},
 								},
