@@ -341,10 +341,19 @@ func generateRedisStatefulSet(rf *redisfailoverv1.RedisFailover, labels map[stri
 								TimeoutSeconds:      5,
 								FailureThreshold:    6,
 								PeriodSeconds:       15,
+								// ProbeHandler: corev1.ProbeHandler{
+								// 	TCPSocket: &corev1.TCPSocketAction{
+								// 		Port: intstr.FromString("redis"),
+								// 		Host: "127.0.0.1",
+								// 	},
+								// },
 								ProbeHandler: corev1.ProbeHandler{
-									TCPSocket: &corev1.TCPSocketAction{
-										Port: intstr.FromString("redis"),
-										Host: "127.0.0.1",
+									Exec: &corev1.ExecAction{
+										Command: []string{
+											"sh",
+											"-c",
+											fmt.Sprintf("redis-cli -h 127.0.0.1 -p %[1]v ping --user pinger --pass pingpass --no-auth-warning", rf.Spec.Redis.Port),
+										},
 									},
 								},
 							},
