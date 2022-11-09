@@ -137,10 +137,15 @@ func (r *RedisFailoverKubeClient) EnsureRedisShutdownConfigMap(rf *redisfailover
 
 // EnsureRedisReadinessConfigMap makes sure the redis configmap with shutdown script exists
 func (r *RedisFailoverKubeClient) EnsureRedisReadinessConfigMap(rf *redisfailoverv1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) error {
-	cm := generateRedisReadinessConfigMap(rf, labels, ownerRefs)
-	err := r.K8SService.CreateOrUpdateConfigMap(rf.Namespace, cm)
-	r.setEnsureOperationMetrics(cm.Namespace, cm.Name, "ConfigMap", rf.Name, err)
-	return err
+	if rf.Spec.Redis.ReadinessConfigMap != "" {
+		_, err := r.K8SService.GetConfigMap(rf.Namespace, rf.Spec.Redis.ReadinessConfigMap)
+		return err
+	} else {
+		cm := generateRedisReadinessConfigMap(rf, labels, ownerRefs)
+		err := r.K8SService.CreateOrUpdateConfigMap(rf.Namespace, cm)
+		r.setEnsureOperationMetrics(cm.Namespace, cm.Name, "ConfigMap", rf.Name, err)
+		return err
+	}
 }
 
 // EnsureRedisService makes sure the redis statefulset exists

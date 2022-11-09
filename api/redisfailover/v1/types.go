@@ -46,6 +46,9 @@ type RedisSettings struct {
 	CustomCommandRenames          []RedisCommandRename              `json:"customCommandRenames,omitempty"`
 	Command                       []string                          `json:"command,omitempty"`
 	ShutdownConfigMap             string                            `json:"shutdownConfigMap,omitempty"`
+	StartupConfigMap              string                            `json:"startupConfigMap,omitempty"`
+	LivenessConfigMap             string                            `json:"livenessConfigMap,omitempty"`
+	ReadinessConfigMap            string                            `json:"readinessConfigMap,omitempty"`
 	Storage                       RedisStorage                      `json:"storage,omitempty"`
 	InitContainers                []corev1.Container                `json:"initContainers,omitempty"`
 	Exporter                      Exporter                          `json:"exporter,omitempty"`

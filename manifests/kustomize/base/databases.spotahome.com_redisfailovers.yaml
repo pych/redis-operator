@@ -5561,6 +5561,8 @@ spec:
                       - name
                       type: object
                     type: array
+                  livenessConfigMap:
+                    type: string
                   nodeSelector:
                     additionalProperties:
                       type: string
@@ -5573,6 +5575,8 @@ spec:
                     format: int32
                     type: integer
                   priorityClassName:
+                    type: string
+                  readinessConfigMap:
                     type: string
                   replicas:
                     format: int32
@@ -5784,6 +5788,8 @@ spec:
                       type: string
                     type: object
                   shutdownConfigMap:
+                    type: string
+                  startupConfigMap:
                     type: string
                   storage:
                     description: RedisStorage defines the structure used to store
