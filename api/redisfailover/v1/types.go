@@ -71,10 +71,12 @@ type RedisSettings struct {
 
 // SentinelSettings defines the specification of the sentinel cluster
 type SentinelSettings struct {
-	Image                     string                            `json:"image,omitempty"`
-	ImagePullPolicy           corev1.PullPolicy                 `json:"imagePullPolicy,omitempty"`
-	Replicas                  int32                             `json:"replicas,omitempty"`
-	Resources                 corev1.ResourceRequirements       `json:"resources,omitempty"`
+	Image           string                      `json:"image,omitempty"`
+	ImagePullPolicy corev1.PullPolicy           `json:"imagePullPolicy,omitempty"`
+	Replicas        int32                       `json:"replicas,omitempty"`
+	Resources       corev1.ResourceRequirements `json:"resources,omitempty"`
+	// +kubebuilder:default:=mymaster
+	MasterGroupName           string                            `json:"masterGroupName,omitempty"`
 	CustomConfig              []string                          `json:"customConfig,omitempty"`
 	Command                   []string                          `json:"command,omitempty"`
 	StartupConfigMap          string                            `json:"startupConfigMap,omitempty"`

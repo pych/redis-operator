@@ -11988,6 +11988,9 @@ spec:
                       - name
                       type: object
                     type: array
+                  masterGroupName:
+                    default: mymaster
+                    type: string
                   nodeSelector:
                     additionalProperties:
                       type: string

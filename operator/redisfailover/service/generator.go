@@ -31,10 +31,10 @@ rename-command "{{.From}}" "{{.To}}"
 {{- end}}
 `
 
-	sentinelConfigTemplate = `sentinel monitor mymaster 127.0.0.1 {{.Spec.Redis.Port}} 2
-sentinel down-after-milliseconds mymaster 1000
-sentinel failover-timeout mymaster 3000
-sentinel parallel-syncs mymaster 2`
+	sentinelConfigTemplate = `sentinel monitor {{.Spec.Sentinel.MasterGroupName}} 127.0.0.1 {{.Spec.Redis.Port}} 2
+sentinel down-after-milliseconds {{.Spec.Sentinel.MasterGroupName}} 1000
+sentinel failover-timeout {{.Spec.Sentinel.MasterGroupName}} 3000
+sentinel parallel-syncs {{.Spec.Sentinel.MasterGroupName}} 2`
 
 	redisShutdownConfigurationVolumeName   = "redis-shutdown-config"
 	redisStartupConfigurationVolumeName    = "redis-startup-config"
