@@ -663,7 +663,7 @@ func createRedisExporterContainer(rf *redisfailoverv1.RedisFailover) corev1.Cont
 		Resources: resources,
 	}
 
-	redisEnv := getRedisEnv(rf)
+	redisEnv := getRedisExporterEnv(rf)
 	container.Env = append(container.Env, redisEnv...)
 
 	return container
@@ -1064,12 +1064,45 @@ func getRedisEnv(rf *redisfailoverv1.RedisFailover) []corev1.EnvVar {
 		Value: fmt.Sprintf("%[1]v", rf.Spec.Redis.Port),
 	})
 
+	env = append(env, corev1.EnvVar{
+		Name:  "REDIS_USER",
+		Value: "default",
+	})
+
+	if rf.Spec.Auth.SecretPath != "" {
+		env = append(env, corev1.EnvVar{
+			Name: "REDIS_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: rf.Spec.Auth.SecretPath,
+					},
+					Key: "password",
+				},
+			},
+		})
+	}
+	return env
+}
+
+func getRedisExporterEnv(rf *redisfailoverv1.RedisFailover) []corev1.EnvVar {
+	var env []corev1.EnvVar
+
+	env = append(env, corev1.EnvVar{
+		Name:  "REDIS_ADDR",
+		Value: fmt.Sprintf("redis://127.0.0.1:%[1]v", rf.Spec.Redis.Port),
+	})
+
+	env = append(env, corev1.EnvVar{
+		Name:  "REDIS_PORT",
+		Value: fmt.Sprintf("%[1]v", rf.Spec.Redis.Port),
+	})
+
 	if !envExists(rf.Spec.Redis.Exporter.Env, "REDIS_USER") {
 		env = append(env, corev1.EnvVar{
 			Name:  "REDIS_USER",
 			Value: "default",
 		})
-
 	}
 
 	if !envExists(rf.Spec.Redis.Exporter.Env, "REDIS_PASSWORD") {
