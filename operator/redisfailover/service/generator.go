@@ -1064,24 +1064,37 @@ func getRedisEnv(rf *redisfailoverv1.RedisFailover) []corev1.EnvVar {
 		Value: fmt.Sprintf("%[1]v", rf.Spec.Redis.Port),
 	})
 
-	env = append(env, corev1.EnvVar{
-		Name:  "REDIS_USER",
-		Value: "default",
-	})
-
-	if rf.Spec.Auth.SecretPath != "" {
+	if !envExists(rf.Spec.Redis.Exporter.Env, "REDIS_USER") {
 		env = append(env, corev1.EnvVar{
-			Name: "REDIS_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: rf.Spec.Auth.SecretPath,
-					},
-					Key: "password",
-				},
-			},
+			Name:  "REDIS_USER",
+			Value: "default",
 		})
+
 	}
 
+	if !envExists(rf.Spec.Redis.Exporter.Env, "REDIS_PASSWORD") {
+		if rf.Spec.Auth.SecretPath != "" {
+			env = append(env, corev1.EnvVar{
+				Name: "REDIS_PASSWORD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: rf.Spec.Auth.SecretPath,
+						},
+						Key: "password",
+					},
+				},
+			})
+		}
+	}
 	return env
+}
+
+func envExists(env []corev1.EnvVar, name string) bool {
+	for _, e := range env {
+		if e.Name == name {
+			return true
+		}
+	}
+	return false
 }
