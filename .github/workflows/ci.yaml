@@ -11,23 +11,23 @@ jobs:
         name: Golang Check
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v3
-            - uses: actions/setup-go@v4
+            - uses: actions/checkout@v4
+            - uses: actions/setup-go@v5
               with:
                   go-version-file: go.mod
                   cache: false
             - name: golangci-lint
-              uses: golangci/golangci-lint-action@v3
+              uses: golangci/golangci-lint-action@v6
               with:
-                  version: v1.53
+                  version: v1.60
                   args: --timeout=15m
 
     unit-test:
         name: Unit test
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v3
-            - uses: actions/setup-go@v4
+            - uses: actions/checkout@v4
+            - uses: actions/setup-go@v5
               with:
                   go-version-file: go.mod
             - run: make ci-unit-test
@@ -40,13 +40,13 @@ jobs:
             matrix:
                 kubernetes: [1.27.3, 1.28.13, 1.29.8, 1.30.4, 1.31.0]
         steps:
-            - uses: actions/checkout@v3
-            - uses: actions/setup-go@v4
+            - uses: actions/checkout@v4
+            - uses: actions/setup-go@v5
               with:
                   go-version-file: go.mod
             - name: Install conntrack
               run: sudo apt-get install -y conntrack
-            - uses: medyagh/setup-minikube@v0.0.14
+            - uses: medyagh/setup-minikube@v0.0.18
               with:
                   kubernetes-version: ${{ matrix.kubernetes }}
                   minikube-version: 1.31.1
