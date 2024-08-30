@@ -246,7 +246,7 @@ func (c *clients) testSentinelMonitoring(t *testing.T) {
 
 	for _, pod := range sentinelPodList.Items {
 		ip := pod.Status.PodIP
-		master, _, _ := c.redisClient.GetSentinelMonitor(ip)
+		master, _, _ := c.redisClient.GetSentinelMonitor(ip, "mymaster")
 		masters = append(masters, master)
 	}
 
