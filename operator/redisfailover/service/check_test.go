@@ -20,7 +20,14 @@ import (
 	rfservice "github.com/spotahome/redis-operator/operator/redisfailover/service"
 )
 
-func generateRF() *redisfailoverv1.RedisFailover {
+func generateRF(args ...bool) *redisfailoverv1.RedisFailover {
+	var disableMyMaster bool
+	if len(args) > 0 {
+		disableMyMaster = args[0]
+	} else {
+		disableMyMaster = false
+	}
+
 	return &redisfailoverv1.RedisFailover{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -31,7 +38,8 @@ func generateRF() *redisfailoverv1.RedisFailover {
 				Replicas: int32(3),
 			},
 			Sentinel: redisfailoverv1.SentinelSettings{
-				Replicas: int32(3),
+				Replicas:        int32(3),
+				DisableMyMaster: disableMyMaster,
 			},
 		},
 	}

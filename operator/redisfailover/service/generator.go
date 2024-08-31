@@ -31,10 +31,19 @@ rename-command "{{.From}}" "{{.To}}"
 {{- end}}
 `
 
-	sentinelConfigTemplate = `sentinel monitor mymaster 127.0.0.1 {{.Spec.Redis.Port}} 2
+	sentinelConfigTemplate = `
+{{- if .Spec.Sentinel.DisableMyMaster -}}
+sentinel monitor {{.Name}} 127.0.0.1 {{.Spec.Redis.Port}} 2
+sentinel down-after-milliseconds {{.Name}} 1000
+sentinel failover-timeout {{.Name}} 3000
+sentinel parallel-syncs {{.Name}} 2
+{{- else -}}
+sentinel monitor mymaster 127.0.0.1 {{.Spec.Redis.Port}} 2
 sentinel down-after-milliseconds mymaster 1000
 sentinel failover-timeout mymaster 3000
-sentinel parallel-syncs mymaster 2`
+sentinel parallel-syncs mymaster 2
+{{- end -}}
+`
 
 	redisShutdownConfigurationVolumeName   = "redis-shutdown-config"
 	redisStartupConfigurationVolumeName    = "redis-startup-config"
@@ -625,6 +634,7 @@ func generateSentinelDeployment(rf *redisfailoverv1.RedisFailover, labels map[st
 	if rf.Spec.Sentinel.CustomReadinessProbe != nil {
 		sd.Spec.Template.Spec.Containers[0].ReadinessProbe = rf.Spec.Sentinel.CustomReadinessProbe
 	} else {
+		probeCommand := fmt.Sprintf("redis-cli -h $(hostname) -p 26379 sentinel get-master-addr-by-name %s | head -n 1 | grep -vq '127.0.0.1'", rf.MasterName())
 		sd.Spec.Template.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
 			InitialDelaySeconds: graceTime,
 			TimeoutSeconds:      5,
@@ -633,7 +643,7 @@ func generateSentinelDeployment(rf *redisfailoverv1.RedisFailover, labels map[st
 					Command: []string{
 						"sh",
 						"-c",
-						"redis-cli -h $(hostname) -p 26379 sentinel get-master-addr-by-name mymaster | head -n 1 | grep -vq '127.0.0.1'",
+						probeCommand,
 					},
 				},
 			},
