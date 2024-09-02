@@ -251,38 +251,23 @@ func generateRedisConfigMap(rf *redisfailoverv1.RedisFailover, labels map[string
 }
 
 func generateRedisShutdownConfigMap(rf *redisfailoverv1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) *corev1.ConfigMap {
-	var shutdownContent string
 	name := GetRedisShutdownConfigMapName(rf)
 	port := rf.Spec.Redis.Port
 	namespace := rf.Namespace
 	rfName := strings.Replace(strings.ToUpper(rf.Name), "-", "_", -1)
 
 	labels = util.MergeLabels(labels, generateSelectorLabels(redisRoleName, rf.Name))
-	if rf.Spec.Sentinel.DisableMyMaster {
-		shutdownContent = fmt.Sprintf(`master=$(redis-cli -h ${RFS_%[1]v_SERVICE_HOST} -p ${RFS_%[1]v_SERVICE_PORT_SENTINEL} --csv SENTINEL get-master-addr-by-name mymaster | tr ',' ' ' | tr -d '\"' |cut -d' ' -f1)
-		if [ "$master" = "$(hostname -i)" ]; then
-		redis-cli -h ${RFS_%[1]v_SERVICE_HOST} -p ${RFS_%[1]v_SERVICE_PORT_SENTINEL} SENTINEL failover mymaster
-		sleep 31
-		fi
-		cmd="redis-cli -p %[2]v"
-		if [ ! -z "${REDIS_PASSWORD}" ]; then
-			export REDISCLI_AUTH=${REDIS_PASSWORD}
-		fi
-		save_command="${cmd} save"
-		eval $save_command`, rfName, port)
-	} else {
-		shutdownContent = fmt.Sprintf(`master=$(redis-cli -h ${RFS_%[1]v_SERVICE_HOST} -p ${RFS_%[1]v_SERVICE_PORT_SENTINEL} --csv SENTINEL get-master-addr-by-name %[1]v | tr ',' ' ' | tr -d '\"' |cut -d' ' -f1)
-		if [ "$master" = "$(hostname -i)" ]; then
-		redis-cli -h ${RFS_%[1]v_SERVICE_HOST} -p ${RFS_%[1]v_SERVICE_PORT_SENTINEL} SENTINEL failover %[1]v
-		sleep 31
-		fi
-		cmd="redis-cli -p %[2]v"
-		if [ ! -z "${REDIS_PASSWORD}" ]; then
-			export REDISCLI_AUTH=${REDIS_PASSWORD}
-		fi
-		save_command="${cmd} save"
-		eval $save_command`, rfName, port)
-	}
+	shutdownContent := fmt.Sprintf(`master=$(redis-cli -h ${RFS_%[1]v_SERVICE_HOST} -p ${RFS_%[1]v_SERVICE_PORT_SENTINEL} --csv SENTINEL get-master-addr-by-name %[3]v | tr ',' ' ' | tr -d '\"' |cut -d' ' -f1)
+if [ "$master" = "$(hostname -i)" ]; then
+redis-cli -h ${RFS_%[1]v_SERVICE_HOST} -p ${RFS_%[1]v_SERVICE_PORT_SENTINEL} SENTINEL failover %[3]v
+sleep 31
+fi
+cmd="redis-cli -p %[2]v"
+if [ ! -z "${REDIS_PASSWORD}" ]; then
+	export REDISCLI_AUTH=${REDIS_PASSWORD}
+fi
+save_command="${cmd} save"
+eval $save_command`, rfName, port, rf.MasterName())
 
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
