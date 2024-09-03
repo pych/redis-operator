@@ -161,7 +161,110 @@ func TestRedisFailover(t *testing.T) {
 	t.Run("Check Sentinels Checking the Redis Master", clients.testSentinelMonitoring)
 }
 
-func (c *clients) testCRCreation(t *testing.T) {
+func TestRedisFailoverWithMasterName(t *testing.T) {
+	require := require.New(t)
+	disableMyMaster := true
+
+	// Create signal channels.
+	stopC := make(chan struct{})
+	errC := make(chan error)
+
+	flags := &utils.CMDFlags{
+		KubeConfig:  filepath.Join(homedir.HomeDir(), ".kube", "config"),
+		Development: true,
+	}
+
+	// Kubernetes clients.
+	k8sClient, customClient, aeClientset, err := utils.CreateKubernetesClients(flags)
+	require.NoError(err)
+
+	// Create the redis clients
+	redisClient := redis.New(metrics.Dummy)
+
+	clients := clients{
+		k8sClient:   k8sClient,
+		rfClient:    customClient,
+		aeClient:    aeClientset,
+		redisClient: redisClient,
+	}
+
+	// Create kubernetes service.
+	k8sservice := k8s.New(k8sClient, customClient, aeClientset, log.Dummy, metrics.Dummy)
+
+	// Prepare namespace
+	prepErr := clients.prepareNS()
+	require.NoError(prepErr)
+
+	// Give time to the namespace to be ready
+	time.Sleep(15 * time.Second)
+
+	// Create operator and run.
+	redisfailoverOperator, err := redisfailover.New(redisfailover.Config{}, k8sservice, k8sClient, namespace, redisClient, metrics.Dummy, log.Dummy)
+	require.NoError(err)
+
+	go func() {
+		errC <- redisfailoverOperator.Run(context.Background())
+	}()
+
+	// Prepare cleanup for when the test ends
+	defer clients.cleanup(stopC)
+
+	// Give time to the operator to start
+	time.Sleep(15 * time.Second)
+
+	// Create secret
+	secret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      authSecretPath,
+			Namespace: namespace,
+		},
+		Data: map[string][]byte{
+			"password": []byte(testPass),
+		},
+	}
+	_, err = k8sClient.CoreV1().Secrets(namespace).Create(context.Background(), secret, metav1.CreateOptions{})
+	require.NoError(err)
+
+	// Check that if we create a RedisFailover, it is certainly created and we can get it
+	ok := t.Run("Check Custom Resource Creation", func(t *testing.T) {
+		clients.testCRCreation(t, disableMyMaster)
+	})
+	require.True(ok, "the custom resource has to be created to continue")
+
+	// Giving time to the operator to create the resources
+	time.Sleep(3 * time.Minute)
+
+	// Verify that auth is set and actually working
+	t.Run("Check that auth is set in sentinel and redis configs", clients.testAuth)
+
+	// Check custom config is set
+	t.Run("Check that custom config is behave expected", clients.testCustomConfig)
+
+	// Check that a Redis Statefulset is created and the size of it is the one defined by the
+	// Redis Failover definition created before.
+	t.Run("Check Redis Statefulset existing and size", clients.testRedisStatefulSet)
+
+	// Check that a Sentinel Deployment is created and the size of it is the one defined by the
+	// Redis Failover definition created before.
+	t.Run("Check Sentinel Deployment existing and size", clients.testSentinelDeployment)
+
+	// Connect to all the Redis pods and, asking to the Redis running inside them, check
+	// that only one of them is the master of the failover.
+	t.Run("Check Only One Redis Master", clients.testRedisMaster)
+
+	// Connect to all the Sentinel pods and, asking to the Sentinel running inside them,
+	// check that all of them are connected to the same Redis node, and also that that node
+	// is the master.
+	t.Run("Check Sentinels Checking the Redis Master", func(t *testing.T) {
+		clients.testSentinelMonitoring(t, disableMyMaster)
+	})
+}
+
+func (c *clients) testCRCreation(t *testing.T, args ...bool) {
+	disableMyMaster := false
+	if len(args) > 0 {
+		disableMyMaster = args[0]
+	}
 	assert := assert.New(t)
 	toCreate := &redisfailoverv1.RedisFailover{
 		ObjectMeta: metav1.ObjectMeta{
@@ -177,7 +280,8 @@ func (c *clients) testCRCreation(t *testing.T) {
 				CustomConfig: []string{`save ""`},
 			},
 			Sentinel: redisfailoverv1.SentinelSettings{
-				Replicas: sentinelSize,
+				Replicas:        sentinelSize,
+				DisableMyMaster: disableMyMaster,
 			},
 			Auth: redisfailoverv1.AuthSettings{
 				SecretPath: authSecretPath,
@@ -188,6 +292,7 @@ func (c *clients) testCRCreation(t *testing.T) {
 	c.rfClient.DatabasesV1().RedisFailovers(namespace).Create(context.Background(), toCreate, metav1.CreateOptions{})
 	gotRF, err := c.rfClient.DatabasesV1().RedisFailovers(namespace).Get(context.Background(), name, metav1.GetOptions{})
 
+	c.rfClient.DatabasesV1().RedisFailovers(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
 	assert.NoError(err)
 	assert.Equal(toCreate.Spec, gotRF.Spec)
 }
@@ -231,7 +336,17 @@ func (c *clients) testRedisMaster(t *testing.T) {
 	assert.Equal(1, len(masters), "only one master expected")
 }
 
-func (c *clients) testSentinelMonitoring(t *testing.T) {
+func (c *clients) testSentinelMonitoring(t *testing.T, args ...bool) {
+	disableMyMaster := false
+	if len(args) > 0 {
+		disableMyMaster = args[0]
+	}
+
+	masterName := "mymaster"
+	if disableMyMaster {
+		masterName = name
+	}
+
 	assert := assert.New(t)
 	masters := []string{}
 
@@ -246,7 +361,7 @@ func (c *clients) testSentinelMonitoring(t *testing.T) {
 
 	for _, pod := range sentinelPodList.Items {
 		ip := pod.Status.PodIP
-		master, _, _ := c.redisClient.GetSentinelMonitor(ip, "mymaster")
+		master, _, _ := c.redisClient.GetSentinelMonitor(ip, masterName)
 		masters = append(masters, master)
 	}
 
