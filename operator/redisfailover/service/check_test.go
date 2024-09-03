@@ -21,28 +21,39 @@ import (
 )
 
 func generateRF(args ...bool) *redisfailoverv1.RedisFailover {
-	var disableMyMaster bool
 	if len(args) > 0 {
-		disableMyMaster = args[0]
+		return &redisfailoverv1.RedisFailover{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: namespace,
+			},
+			Spec: redisfailoverv1.RedisFailoverSpec{
+				Redis: redisfailoverv1.RedisSettings{
+					Replicas: int32(3),
+				},
+				Sentinel: redisfailoverv1.SentinelSettings{
+					Replicas:        int32(3),
+					DisableMyMaster: args[0],
+				},
+			},
+		}
 	} else {
-		disableMyMaster = false
+		return &redisfailoverv1.RedisFailover{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: namespace,
+			},
+			Spec: redisfailoverv1.RedisFailoverSpec{
+				Redis: redisfailoverv1.RedisSettings{
+					Replicas: int32(3),
+				},
+				Sentinel: redisfailoverv1.SentinelSettings{
+					Replicas: int32(3),
+				},
+			},
+		}
 	}
 
-	return &redisfailoverv1.RedisFailover{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: redisfailoverv1.RedisFailoverSpec{
-			Redis: redisfailoverv1.RedisSettings{
-				Replicas: int32(3),
-			},
-			Sentinel: redisfailoverv1.SentinelSettings{
-				Replicas:        int32(3),
-				DisableMyMaster: disableMyMaster,
-			},
-		},
-	}
 }
 
 func TestCheckRedisNumberError(t *testing.T) {
