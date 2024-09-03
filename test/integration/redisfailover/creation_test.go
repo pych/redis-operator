@@ -131,7 +131,9 @@ func TestRedisFailover(t *testing.T) {
 	require.NoError(err)
 
 	// Check that if we create a RedisFailover, it is certainly created and we can get it
-	ok := t.Run("Check Custom Resource Creation", clients.testCRCreation)
+	ok := t.Run("Check Custom Resource Creation", func(t *testing.T) {
+		clients.testCRCreation(t)
+	})
 	require.True(ok, "the custom resource has to be created to continue")
 
 	// Giving time to the operator to create the resources
@@ -158,7 +160,9 @@ func TestRedisFailover(t *testing.T) {
 	// Connect to all the Sentinel pods and, asking to the Sentinel running inside them,
 	// check that all of them are connected to the same Redis node, and also that that node
 	// is the master.
-	t.Run("Check Sentinels Checking the Redis Master", clients.testSentinelMonitoring)
+	t.Run("Check Sentinels Checking the Redis Master", func(t *testing.T) {
+		clients.testSentinelMonitoring(t)
+	})
 }
 
 func (c *clients) testCRCreation(t *testing.T, args ...bool) {
