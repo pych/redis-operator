@@ -52,7 +52,7 @@ type clients struct {
 	redisClient redis.Client
 }
 
-func (c *clients) prepareNS(currentNamespace sting) error {
+func (c *clients) prepareNS(currentNamespace string) error {
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: currentNamespace,
