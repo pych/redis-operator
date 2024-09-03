@@ -161,7 +161,11 @@ func TestRedisFailover(t *testing.T) {
 	t.Run("Check Sentinels Checking the Redis Master", clients.testSentinelMonitoring)
 }
 
-func (c *clients) testCRCreation(t *testing.T) {
+func (c *clients) testCRCreation(t *testing.T, args ...bool) {
+	disableMyMaster := false
+	if len(args) > 0 && args[0] {
+		disableMyMaster = args[0]
+	}
 	assert := assert.New(t)
 	toCreate := &redisfailoverv1.RedisFailover{
 		ObjectMeta: metav1.ObjectMeta{
@@ -177,7 +181,8 @@ func (c *clients) testCRCreation(t *testing.T) {
 				CustomConfig: []string{`save ""`},
 			},
 			Sentinel: redisfailoverv1.SentinelSettings{
-				Replicas: sentinelSize,
+				Replicas:        sentinelSize,
+				DisableMyMaster: disableMyMaster,
 			},
 			Auth: redisfailoverv1.AuthSettings{
 				SecretPath: authSecretPath,
@@ -231,7 +236,17 @@ func (c *clients) testRedisMaster(t *testing.T) {
 	assert.Equal(1, len(masters), "only one master expected")
 }
 
-func (c *clients) testSentinelMonitoring(t *testing.T) {
+func (c *clients) testSentinelMonitoring(t *testing.T, args ...bool) {
+	disableMyMaster := false
+	if len(args) > 0 {
+		disableMyMaster = args[0]
+	}
+
+	masterName := "mymaster"
+	if disableMyMaster {
+		masterName = name
+	}
+
 	assert := assert.New(t)
 	masters := []string{}
 
@@ -246,7 +261,7 @@ func (c *clients) testSentinelMonitoring(t *testing.T) {
 
 	for _, pod := range sentinelPodList.Items {
 		ip := pod.Status.PodIP
-		master, _, _ := c.redisClient.GetSentinelMonitor(ip, "mymaster")
+		master, _, _ := c.redisClient.GetSentinelMonitor(ip, masterName)
 		masters = append(masters, master)
 	}
 
