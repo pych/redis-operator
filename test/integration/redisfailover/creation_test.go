@@ -69,6 +69,7 @@ func (c *clients) cleanup(stopC chan struct{}) {
 
 func TestRedisFailover(t *testing.T) {
 	require := require.New(t)
+	disableMyMaster := true
 
 	// Create signal channels.
 	stopC := make(chan struct{})
@@ -132,7 +133,7 @@ func TestRedisFailover(t *testing.T) {
 
 	// Check that if we create a RedisFailover, it is certainly created and we can get it
 	ok := t.Run("Check Custom Resource Creation", func(t *testing.T) {
-		clients.testCRCreation(t)
+		clients.testCRCreation(t, disableMyMaster)
 	})
 	require.True(ok, "the custom resource has to be created to continue")
 
@@ -161,7 +162,7 @@ func TestRedisFailover(t *testing.T) {
 	// check that all of them are connected to the same Redis node, and also that that node
 	// is the master.
 	t.Run("Check Sentinels Checking the Redis Master", func(t *testing.T) {
-		clients.testSentinelMonitoring(t)
+		clients.testSentinelMonitoring(t, disableMyMaster)
 	})
 }
 
