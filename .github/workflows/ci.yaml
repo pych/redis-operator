@@ -5,7 +5,10 @@ on:
     branches:
       - main
   pull_request:
+    types: [opened, synchronize, reopened, edited]
 
+    branches:
+      - master
 jobs:
   check:
     name: Golang Check
